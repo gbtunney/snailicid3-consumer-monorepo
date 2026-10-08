@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────
+# Repository-owned — NOT synced from snailicid3-actions.
+#
+# The token variable names are this repository's own, and a reusable
+# workflow can only receive secrets it names literally, so Chromatic runs
+# here through the shared run-chromatic composite instead. Each project's
+# `chromatic` Nx target names the variable it reads; list every one of them
+# in required_env.
+# ─────────────────────────────────────────────────────────────
+name: Chromatic
+
+# Pull requests only. A visual baseline is reviewed and accepted in the pull
+# request that changes it; a push to main has already been through that.
+on:
+    pull_request:
+        branches:
+            - main
+
+concurrency:
+    group: chromatic-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+env:
+    HUSKY: 0
+    CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT: ${{ secrets.CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT }}
+
+jobs:
+    chromatic:
+        name: chromatic
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  # Chromatic walks git history to find each build's baseline.
+                  fetch-depth: 0
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v6
+              with:
+                  run_install: false
+
+            - name: Setup Node
+              uses: actions/setup-node@v7
+              with:
+                  node-version: '24'
+                  cache: pnpm
+
+            - name: Install
+              run: pnpm install --frozen-lockfile
+
+            # A fork or Dependabot pull request receives no repository secrets;
+            # required_env turns that into a skip with a notice, not a failure.
+            # TEMPORARY: pinned to the snailicid3-actions branch that carries
+            # required_env (gbtunney/snailicid3-actions#33). Return to @v2 once
+            # that lands and v2 is advanced.
+            - name: Run Chromatic
+              uses: gbtunney/snailicid3-actions/.github/actions/run-chromatic@claude/consumer-modernize-chromatic-pr-only
+              with:
+                  mode: abort_on_error
+                  required_env: CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT
