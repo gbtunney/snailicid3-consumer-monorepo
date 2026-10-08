@@ -30,7 +30,7 @@
             },
             "build:storybook": {},
             "chromatic": {
-                "command": "pnpm exec chromatic --project-token=$CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT --build-script-name build:storybook:nx"
+                "command": "pnpm exec chromatic --project-token=$CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT --storybook-build-dir storybook-static --exit-zero-on-changes"
             },
             "test": {},
             "test:watch": {},

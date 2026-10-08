@@ -1,0 +1,76 @@
+# ─────────────────────────────────────────────────────────────
+# Repository-owned — NOT synced from snailicid3-actions.
+#
+# The token variable names are this repository's own, and a reusable
+# workflow can only receive secrets it names literally, so Chromatic runs
+# here through the shared run-chromatic composite instead. Each project's
+# `chromatic` Nx target names the variable it reads.
+# ─────────────────────────────────────────────────────────────
+name: Chromatic
+
+# Pull requests only. A push to main is already reviewed in the pull request
+# that produced it, and a visual baseline is accepted there, not on main.
+on:
+    pull_request:
+        branches:
+            - main
+
+concurrency:
+    group: chromatic-${{ github.event.pull_request.number }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+env:
+    HUSKY: 0
+    CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT: ${{ secrets.CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT }}
+
+jobs:
+    chromatic:
+        name: chromatic
+        runs-on: ubuntu-latest
+        steps:
+            # A fork or Dependabot pull request receives no repository secrets.
+            # Skip with a notice rather than fail a run the author cannot fix.
+            - name: Require the Chromatic token
+              id: token
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  if [[ -z "${CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT}" ]]; then
+                    echo "::notice::CHROMATIC_PROJECT_TOKEN_EXAMPLE_REACT is not available to this run; Chromatic skipped."
+                    echo "present=false" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "present=true" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Checkout
+              if: ${{ steps.token.outputs.present == 'true' }}
+              uses: actions/checkout@v7
+              with:
+                  # Chromatic walks git history to find each build's baseline.
+                  fetch-depth: 0
+
+            - name: Setup pnpm
+              if: ${{ steps.token.outputs.present == 'true' }}
+              uses: pnpm/action-setup@v6
+              with:
+                  run_install: false
+
+            - name: Setup Node
+              if: ${{ steps.token.outputs.present == 'true' }}
+              uses: actions/setup-node@v7
+              with:
+                  node-version: '24'
+                  cache: pnpm
+
+            - name: Install
+              if: ${{ steps.token.outputs.present == 'true' }}
+              run: pnpm install --frozen-lockfile
+
+            - name: Run Chromatic
+              if: ${{ steps.token.outputs.present == 'true' }}
+              uses: gbtunney/snailicid3-actions/.github/actions/run-chromatic@v2
+              with:
+                  mode: abort_on_error
